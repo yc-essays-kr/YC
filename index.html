@@ -483,6 +483,7 @@
             font-size: var(--text-lg);
             line-height: 1.8;
             color: var(--color-text-primary);
+            position: relative; /* anchor for footnote popovers */
         }
 
         .essay-detail-content p {
@@ -525,6 +526,79 @@
         .essay-detail-content a {
             color: var(--color-accent-primary);
             text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        /* ===== Footnotes ===== */
+        body.modal-open {
+            overflow: hidden;
+        }
+
+        .footnote-ref {
+            cursor: pointer;
+            color: var(--color-accent-primary);
+            font-weight: 600;
+        }
+
+        .footnote-ref:hover {
+            color: var(--color-accent-hover);
+        }
+
+        .footnote-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 120;
+            animation: fadeIn 120ms ease-out;
+        }
+
+        .footnote-modal {
+            background: #fff;
+            color: var(--color-text-primary);
+            border-radius: 14px;
+            padding: 20px 22px 18px;
+            max-width: 520px;
+            width: min(90vw, 520px);
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+            position: relative;
+            line-height: 1.6;
+            animation: fadeInUp 140ms ease-out;
+        }
+
+        .footnote-modal-number {
+            font-weight: 800;
+            margin-bottom: 8px;
+            display: block;
+            color: var(--color-accent-primary);
+        }
+
+        .footnote-modal-close {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            border: none;
+            background: transparent;
+            font-size: 1.4rem;
+            color: #777;
+            cursor: pointer;
+        }
+
+        .footnote-modal-close:hover {
+            color: #444;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         /* ===== Summary Section ===== */
@@ -3969,6 +4043,9 @@
         let sortOrder = 'latest';
         let displayCount = 18;
         const PAGE_SIZE = 18;
+        let currentFootnotes = {};
+        let activeFootnoteModal = null;
+        let footnoteKeyHandler = null;
 
         // ===== Initialize Category Counts =====
         function updateCategoryCounts() {
@@ -4143,6 +4220,7 @@
 
             // Render essay content from embedded data
             document.getElementById('detailContent').innerHTML = markdownToHtml(essay.content);
+            attachFootnotePopovers(document.getElementById('detailContent'), currentFootnotes);
 
             window.scrollTo(0, 0);
             history.pushState({ essayId }, '', '#essay-' + essayId);
@@ -4156,6 +4234,8 @@
 
         // ===== Simple Markdown to HTML =====
         function markdownToHtml(md) {
+            currentFootnotes = {};
+
             // Remove front matter if exists (only at very start of file)
             if (md.trimStart().startsWith('---')) {
                 md = md.trimStart().replace(/^---\n[\s\S]*?\n---\n*/, '');
@@ -4173,6 +4253,16 @@
                 .replace(/^---\s*$/gm, '')
                 .replace(/^\d{4}년\s*\d{1,2}월\s*$/gm, '');
             md = cleanedTop + restPart;
+
+            // Extract footnote definitions near the end (e.g., [1] ... )
+            const footnoteRegex = /\n\[(\d+)\]\s+([\s\S]*?)(?=\n\[\d+\]\s+|\n*$)/g;
+            md = md.replace(footnoteRegex, (_match, num, text) => {
+                currentFootnotes[num] = text.trim();
+                return '';
+            });
+
+            // Replace inline footnote markers [1] with clickable refs (but skip markdown links)
+            md = md.replace(/(\[(\d+)\])(?!\()/g, '<sup class="footnote-ref" data-fn="$2">[$2]</sup>');
 
             let html = md;
 
@@ -4213,6 +4303,70 @@
             html = html.replace(/<p>\s*<\/p>/g, '');
 
             return html;
+        }
+
+        function attachFootnotePopovers(container, footnotes) {
+            if (!container) return;
+
+            const closeModal = () => {
+                if (activeFootnoteModal) {
+                    activeFootnoteModal.remove();
+                    activeFootnoteModal = null;
+                    document.body.classList.remove('modal-open');
+                }
+            };
+
+            if (!footnoteKeyHandler) {
+                footnoteKeyHandler = (ev) => {
+                    if (ev.key === 'Escape') closeModal();
+                };
+                window.addEventListener('keydown', footnoteKeyHandler);
+            }
+
+            closeModal();
+
+            container.querySelectorAll('.footnote-ref').forEach(ref => {
+                ref.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const num = ref.dataset.fn;
+                    const text = footnotes[num] || '주석을 찾을 수 없습니다.';
+
+                    closeModal();
+
+                    const backdrop = document.createElement('div');
+                    backdrop.className = 'footnote-backdrop';
+
+                    const modal = document.createElement('div');
+                    modal.className = 'footnote-modal';
+
+                    const closeBtn = document.createElement('button');
+                    closeBtn.className = 'footnote-modal-close';
+                    closeBtn.setAttribute('aria-label', '주석 닫기');
+                    closeBtn.innerHTML = '&times;';
+
+                    const numEl = document.createElement('span');
+                    numEl.className = 'footnote-modal-number';
+                    numEl.textContent = `[${num}]`;
+
+                    const bodyEl = document.createElement('div');
+                    bodyEl.textContent = text;
+
+                    modal.appendChild(closeBtn);
+                    modal.appendChild(numEl);
+                    modal.appendChild(bodyEl);
+                    backdrop.appendChild(modal);
+                    document.body.appendChild(backdrop);
+                    document.body.classList.add('modal-open');
+
+                    backdrop.addEventListener('click', (ev) => {
+                        if (ev.target === backdrop) closeModal();
+                    });
+                    closeBtn.addEventListener('click', closeModal);
+
+                    activeFootnoteModal = backdrop;
+                });
+            });
         }
 
         // ===== Event Handlers =====
