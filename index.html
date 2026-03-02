@@ -1151,13 +1151,8 @@
                 <input type="hidden" name="options[slug]" value="">
                 <input type="hidden" name="fields[pageTitle]" value="">
                 <div>
-                    <label for="commentName">닉네임 (선택)</label>
-                    <input id="commentName" name="fields[name]" type="text" maxlength="40" placeholder="익명">
-                </div>
-                <div>
                     <label for="commentBody">댓글</label>
-                    <textarea id="commentBody" name="fields[comment]" maxlength="800" required placeholder="내용을 입력하세요 (최대 800자)"></textarea>
-                    <div class="comment-hint">제출하면 PR로 올라가며, 머지 후 페이지에 표시됩니다.</div>
+                    <textarea id="commentBody" name="fields[comment]" maxlength="1000" required placeholder="내용을 입력하세요 (최대 1000자)"></textarea>
                 </div>
                 <button type="submit">댓글 남기기</button>
             </form>
@@ -4532,7 +4527,7 @@
 
             // Static site: comments are pulled from /comments/<slug>/... json files at build/publish time.
             // Since GH Pages can't read the repo, we just show "댓글은 PR 머지 후 표시됩니다".
-            emptyEl.textContent = '새 댓글은 제출 후 PR 머지되면 여기에 표시됩니다.';
+            emptyEl.textContent = '댓글이 없습니다.';
             countEl.textContent = '';
             listEl.innerHTML = '';
 
@@ -4556,7 +4551,7 @@
                     headers: { 'Accept': 'application/json' }
                 }).then(async res => {
                     if (!res.ok) throw new Error('submit failed');
-                    submitBtn.textContent = '제출 완료 (곧 반영됩니다)';
+                    submitBtn.textContent = '제출 완료';
                     form.reset();
                 }).catch(err => {
                     console.error(err);

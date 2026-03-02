@@ -1,5 +1,5 @@
 comments:
-  allowedFields: ["name", "comment", "pageTitle"]
+  allowedFields: ["comment", "pageTitle"]
   requiredFields: ["comment"]
   branch: "main"
   commitMessage: "chore: add comment to {options.slug}"
@@ -15,7 +15,6 @@ comments:
         format: iso8601
   transforms:
     comment: "trim"
-    name: "trim"
   # reCaptcha 설정이 있다면 아래 주석을 해제하고 사이트 키/시크릿을 추가하세요.
   # reCaptcha:
   #   enabled: true
